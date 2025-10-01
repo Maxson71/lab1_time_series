@@ -5,7 +5,7 @@ import os
 
 end = date.today()
 start = end - timedelta(days=3*365)
-valcode = "CNY"
+valcode = "EUR"
 
 # Завантаження з офіційного API НБУ (JSON на діапазон дат)
 url = "https://bank.gov.ua/NBU_Exchange/exchange_site"

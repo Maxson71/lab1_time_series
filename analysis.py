@@ -6,8 +6,10 @@ from scipy import stats
 from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import PolynomialFeatures
 from sklearn.metrics import r2_score
+import seaborn as sns
+from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
 
-valcode = "CNY"
+valcode = "EUR"
 out_dir = Path(valcode)
 out_dir.mkdir(exist_ok=True)
 
@@ -105,25 +107,99 @@ syn_resid_stats = ts_stats(pd.Series(syn_resid))
 save_stats_csv(syn_stats, out_dir / f"stats_synthetic_{valcode}.csv")
 save_stats_csv(syn_resid_stats, out_dir / f"stats_synthetic_residuals_{valcode}.csv")
 
-# Графіки
-plt.figure(figsize=(10,4))
-plt.plot(df_trend["date"], df_trend["rate"], label="Real")
-plt.plot(df_trend["date"], df_trend["y_trend"], label=f"Trend({trend_kind})")
-plt.title(f"NBU {valcode}/UAH: real vs trend | R2 lin={r2_lin:.3f}, quad={r2_quad:.3f}")
-plt.legend()
-plt.tight_layout()
-plt.savefig(out_dir / f"plot_real_trend_{valcode}.png", dpi=150)
+# ====== Графіки ======
 
-plt.figure(figsize=(10,4))
-plt.hist(df_trend["residual"], bins=40, alpha=0.7)
-plt.title("Residuals histogram (real)")
-plt.tight_layout()
-plt.savefig(out_dir / "hist_residuals_real.png", dpi=150)
-
-plt.figure(figsize=(10,4))
-plt.plot(df_trend["date"], df_syn["y_syn"], label="Synthetic")
-plt.plot(df_trend["date"], df_syn["y_trend_syn"], label="Synthetic trend")
-plt.title(f"Synthetic series like real ({trend_kind})")
+# 1. Реальні дані + тренд
+plt.figure(figsize=(10, 5))
+plt.plot(df["date"], df["rate"], label="Справжні дані", color="blue")
+plt.plot(df["date"], df_trend["y_trend"], label=f"{trend_kind.capitalize()} trend", color="red")
+plt.title(f"{valcode}/UAH Реальні ціна + тренд")
+plt.xlabel("Дата")
+plt.ylabel("Ціна")
 plt.legend()
+plt.grid(True)
 plt.tight_layout()
-plt.savefig(out_dir / f"plot_synthetic_{valcode}.png", dpi=150)
+plt.savefig(out_dir / f"plot_rate_trend_{valcode}.png")
+plt.close()
+
+# 2. Залишки (residuals)
+plt.figure(figsize=(10, 4))
+plt.plot(df["date"], df_trend["residual"], label="Residuals", color="purple")
+plt.axhline(0, color="black", linestyle="--")
+plt.title(f"Залишки (residuals) {valcode}/UAH trend")
+plt.xlabel("Дата")
+plt.ylabel("Залишки")
+plt.grid(True)
+plt.tight_layout()
+plt.savefig(out_dir / f"plot_residuals_{valcode}.png")
+plt.close()
+
+# 3. Гістограма та щільність розподілу залишків
+plt.figure(figsize=(8, 5))
+sns.histplot(df_trend["residual"], bins=30, kde=True, color="purple")
+plt.title("Розподіл залишків")
+plt.xlabel("Залишкова цінність")
+plt.ylabel("Частота")
+plt.tight_layout()
+plt.savefig(out_dir / f"plot_residuals_hist_{valcode}.png")
+plt.close()
+
+# 4. Автокореляція залишків (ACF і PACF)
+fig, ax = plt.subplots(2, 1, figsize=(10, 8))
+plot_acf(df_trend["residual"], ax=ax[0], lags=40)
+plot_pacf(df_trend["residual"], ax=ax[1], lags=40)
+ax[0].set_title("ACF залишків")
+ax[1].set_title("PACF залишків")
+plt.tight_layout()
+plt.savefig(out_dir / f"plot_residuals_acf_pacf_{valcode}.png")
+plt.close()
+
+# 5. Синтетичні vs реальні дані
+plt.figure(figsize=(10, 5))
+plt.plot(df["date"], y, label="Рельні дані", color="blue")
+plt.plot(df["date"], y_syn, label="Синтетичні дані", color="orange", alpha=0.7)
+plt.title(f"Порівняння реального проти синтетичного {valcode}/UAH")
+plt.xlabel("Дата")
+plt.ylabel("Ціна")
+plt.legend()
+plt.grid(True)
+plt.tight_layout()
+plt.savefig(out_dir / f"plot_real_vs_synthetic_{valcode}.png")
+plt.close()
+
+# 6. Порівняння розподілів (boxplot)
+plt.figure(figsize=(8, 5))
+sns.boxplot(data=[y, y_syn], orient="h")
+plt.yticks([0, 1], ["Реальні", "Синтетичні"])
+plt.title("Порівняння розподілів Boxplot: Реальні та синтетичні дані")
+plt.tight_layout()
+plt.savefig(out_dir / f"plot_boxplot_real_vs_synthetic_{valcode}.png")
+plt.close()
+
+# ====== Вивід статистичних характеристик у консоль ======
+
+ukr_labels = {
+    "count": "Кількість спостережень",
+    "mean": "Середнє значення",
+    "std": "Стандартне відхилення",
+    "var": "Дисперсія",
+    "min": "Мінімум",
+    "q25": "25-й процентиль (Q1)",
+    "median": "Медіана",
+    "q75": "75-й процентиль (Q3)",
+    "max": "Максимум",
+    "skew": "Асиметрія",
+    "kurtosis": "Ексцес"
+}
+pd.set_option("display.float_format", "{:.6f}".format)
+
+def print_stats_table(name: str, stats_dict: dict):
+    df_stats = pd.DataFrame([stats_dict]).T.reset_index()
+    df_stats.columns = ["Метрика", "Значення"]
+    df_stats["Метрика"] = df_stats["Метрика"].map(ukr_labels).fillna(df_stats["Метрика"])
+    print(f"\n=== {name} ===")
+    print(df_stats.to_string(index=False))
+
+print_stats_table("Статистика рівня ряду", rate_stats)
+print_stats_table("Статистика приростів (returns)", rets_stats)
+print_stats_table("Статистика залишків", resid_stats)
