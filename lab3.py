@@ -1,10 +1,3 @@
-"""
-Лабораторна робота №3: Рекурентне згладжування часових рядів
-Реалізація фільтрів Калмана (alfa-beta, alfa-beta-gamma) з адаптацією
-Автор: Data Science Engineer
-Дата: 2025-10-25
-"""
-
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -14,7 +7,6 @@ from typing import Tuple, Dict, List
 import warnings
 warnings.filterwarnings('ignore')
 
-# Налаштування
 VALCODE = "EUR"
 INPUT_DIR = Path(VALCODE) / "data"
 OUTPUT_DIR = Path(VALCODE) / "lab3_outputs"
